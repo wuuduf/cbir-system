@@ -1,0 +1,8 @@
+allowBuilds:
+  esbuild: true
+  vue-demi: true
+  vue-echarts: true
+onlyBuiltDependencies:
+  - esbuild
+  - vue-demi
+  - vue-echarts

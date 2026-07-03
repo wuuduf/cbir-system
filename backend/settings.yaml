@@ -1,0 +1,24 @@
+app:
+  data_root: "../data"
+  device: "auto"
+  top_k: 12
+  public_base_url: ""
+  cors_origins:
+    - "http://localhost:5173"
+    - "http://127.0.0.1:5173"
+database:
+  url: "sqlite:///../data/cbir.db"
+features:
+  color_hist: { h_bins: 8, s_bins: 8, v_bins: 8 }
+  color_moments: {}
+  glcm: { levels: 8, distances: [1], angles_deg: [0, 45, 90, 135] }
+  lbp: { P: 8, R: 1, method: "uniform" }
+  hu: {}
+  eoh: { bins: 36 }
+  deep: { model: "auto", dim: 2048, checkpoint: "../data/models/cifar_resnet18_metric.pt" }
+  clip: { model: "ViT-B-32", pretrained: "openai", dim: 512, batch_size: 64 }
+preprocess:
+  size: [256, 256]
+  denoise: "median"
+  equalize: false
+datasets_registry: "../data/registry.json"

@@ -1,0 +1,17 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+opencv-python>=4.9
+numpy>=1.26,<2.0
+scikit-image>=0.22
+pillow>=10.0
+faiss-cpu>=1.8
+open_clip_torch>=2.26
+sqlalchemy>=2.0
+pymysql>=1.1
+pydantic-settings>=2.0
+pyyaml>=6.0
+tqdm>=4.66
+python-multipart>=0.0.9
+pytest>=8.0
+ruff>=0.4
+black>=24.0

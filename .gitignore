@@ -1,0 +1,39 @@
+# Python
+backend/.venv/
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Local runtime
+.runtime/
+backend/uvicorn*.log
+backend/torch*-cu121-index.html
+backend/torchvision*-cu121-index.html
+
+# Database and generated data
+data/cbir.db*
+data/raw/
+data/datasets/
+data/models/
+data/videos/
+data/logs/
+
+# Local archives / model artifacts
+*.pt
+*.pth
+*.onnx
+*.npy
+*.faiss
+*.tar.gz
+*.zip
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.webm
+*.m4v
