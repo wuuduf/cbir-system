@@ -11,5 +11,18 @@ export default defineConfig({
       '/api': apiTarget,
       '/static': apiTarget
     }
+  },
+  build: {
+    // 体积较大的第三方库单独分包，配合路由懒加载减小首屏体积、提升加载性能。
+    chunkSizeWarningLimit: 900,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-echarts': ['echarts', 'vue-echarts'],
+          'vendor-element': ['element-plus', '@element-plus/icons-vue'],
+          'vendor-vue': ['vue', 'vue-router', 'pinia', 'axios']
+        }
+      }
+    }
   }
 })

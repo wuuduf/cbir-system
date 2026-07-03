@@ -155,7 +155,12 @@ class Retriever:
         for feature, weight in weights.items():
             if weight <= 0 or feature not in query_vectors:
                 continue
-            matrix, ids = self.store.get_matrix(dataset, feature)
+            # 某个特征索引缺失（例如未训练深度模型）时跳过该特征，只用剩余特征融合，
+            # 避免因单个特征未建库导致整个综合检索失败，提升演示稳定性。
+            try:
+                matrix, ids = self.store.get_matrix(dataset, feature)
+            except FileNotFoundError:
+                continue
             query_vec = self._transform_query(
                 dataset, feature, query_vectors[feature].astype(np.float32)
             )
@@ -170,7 +175,7 @@ class Retriever:
             fused_scores += normalized.astype(np.float32) * float(weight)
             weight_sum += float(weight)
         if fused_scores is None or fused_ids is None or weight_sum <= 0:
-            raise ValueError("融合检索至少需要一个权重大于 0 的特征")
+            raise ValueError("融合检索没有可用特征，请先为所选特征建立索引，或调整权重")
         fused_scores /= weight_sum
         order = np.argsort(-fused_scores)[:top_k]
         return [

@@ -1,19 +1,16 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import SearchView from '../views/SearchView.vue'
-import GalleryView from '../views/GalleryView.vue'
-import EvaluateView from '../views/EvaluateView.vue'
-import PipelineView from '../views/PipelineView.vue'
-import VideoView from '../views/VideoView.vue'
 
+// 首屏检索页直接打包，其余页面按需懒加载，减小首屏体积、加快首屏渲染。
 const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/', redirect: '/search' },
     { path: '/search', component: SearchView },
-    { path: '/gallery', component: GalleryView },
-    { path: '/videos', component: VideoView },
-    { path: '/evaluate', component: EvaluateView },
-    { path: '/pipeline', component: PipelineView }
+    { path: '/gallery', component: () => import('../views/GalleryView.vue') },
+    { path: '/videos', component: () => import('../views/VideoView.vue') },
+    { path: '/evaluate', component: () => import('../views/EvaluateView.vue') },
+    { path: '/pipeline', component: () => import('../views/PipelineView.vue') }
   ]
 })
 

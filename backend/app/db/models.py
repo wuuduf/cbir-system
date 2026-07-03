@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import DateTime, Float, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.database import Base
+
+
+def _utcnow() -> datetime:
+    """返回带时区的当前 UTC 时间，替代已弃用的 datetime.utcnow。"""
+
+    return datetime.now(timezone.utc)
 
 
 class Image(Base):
@@ -26,7 +32,7 @@ class Image(Base):
     category: Mapped[str | None] = mapped_column(String(128), nullable=True)
     width: Mapped[int] = mapped_column()
     height: Mapped[int] = mapped_column()
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
 
 
 class Video(Base):
@@ -42,7 +48,7 @@ class Video(Base):
     fps: Mapped[float] = mapped_column(Float, default=0.0)
     frame_count: Mapped[int] = mapped_column(default=0)
     keyframe_count: Mapped[int] = mapped_column(default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
 
 
 class VideoKeyframe(Base):
@@ -61,4 +67,4 @@ class VideoKeyframe(Base):
     path: Mapped[str] = mapped_column(String(1024))
     width: Mapped[int] = mapped_column()
     height: Mapped[int] = mapped_column()
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
