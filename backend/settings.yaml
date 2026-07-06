@@ -17,6 +17,7 @@ features:
   eoh: { bins: 36 }
   deep: { model: "auto", dim: 2048, checkpoint: "../data/models/cifar_resnet18_metric.pt" }
   clip: { model: "ViT-B-32", pretrained: "openai", dim: 512, batch_size: 64 }
+  dinov2: { model: "dinov2_vits14", dim: 384, batch_size: 32, image_size: 224 }
 preprocess:
   size: [256, 256]
   denoise: "median"

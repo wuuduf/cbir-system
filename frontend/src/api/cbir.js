@@ -76,6 +76,32 @@ export async function evaluateFeature({ dataset, feature, metric, k = 12, sample
   return response.data
 }
 
+export async function analyzeEvaluation(payload) {
+  const response = await client.post('/ai/evaluate-analysis', payload)
+  return response.data
+}
+
+export async function adminLogin(password) {
+  const response = await client.post('/admin/login', { password }, { skipGlobalError: true })
+  return response.data
+}
+
+export async function fetchAiConfig(token) {
+  const response = await client.get('/admin/ai-config', {
+    headers: { 'X-Admin-Token': token },
+    skipGlobalError: true
+  })
+  return response.data
+}
+
+export async function saveAiConfig(token, payload) {
+  const response = await client.post('/admin/ai-config', payload, {
+    headers: { 'X-Admin-Token': token },
+    skipGlobalError: true
+  })
+  return response.data
+}
+
 export async function buildIndex({ dataset, features }) {
   const response = await client.post('/index/build', { dataset, features })
   return response.data
@@ -139,6 +165,16 @@ export async function startPipelineIndex(payload) {
   return response.data
 }
 
+export async function fetchDeepModels() {
+  const response = await client.get('/pipeline/models/deep')
+  return response.data
+}
+
+export async function setActiveDeepModel(path) {
+  const response = await client.post('/pipeline/models/deep/active', { path })
+  return response.data
+}
+
 export async function startPipelineEvaluate(payload) {
   const response = await client.post('/pipeline/evaluate', payload)
   return response.data
@@ -172,14 +208,14 @@ export async function importLocalVideos({ intervalSeconds = 2, maxKeyframes = 60
   return response.data
 }
 
-export async function buildVideoIndex({ feature = 'deep' }) {
+export async function buildVideoIndex({ feature = 'deep_triplet' }) {
   const form = new FormData()
   form.append('feature', feature)
   const response = await client.post('/videos/index', form)
   return response.data
 }
 
-export async function searchVideosByImage({ file, feature = 'deep', metric = 'cosine', topK = 6 }) {
+export async function searchVideosByImage({ file, feature = 'deep_triplet', metric = 'cosine', topK = 6 }) {
   const form = new FormData()
   form.append('file', file)
   form.append('feature', feature)

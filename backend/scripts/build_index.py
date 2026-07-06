@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -19,7 +20,7 @@ from app.preprocess import load_image
 from app.services.dataset_service import load_registry
 
 TRADITIONAL_FEATURES = {"color_hist", "color_moments", "glcm", "lbp", "hu", "eoh"}
-DEEP_FEATURES = {"deep", "clip"}
+DEEP_FEATURES = {"deep", "deep_cnn", "deep_triplet", "clip", "dinov2"}
 ALL_FEATURES = TRADITIONAL_FEATURES | DEEP_FEATURES
 STANDARDIZED_FEATURES = {"color_moments", "glcm", "hu"}
 
@@ -28,7 +29,18 @@ def parse_features(value: str) -> list[str]:
     """Parse --features into a concrete feature list."""
 
     if value == "all":
-        return ["color_hist", "color_moments", "glcm", "lbp", "hu", "eoh", "deep", "clip"]
+        return [
+            "color_hist",
+            "color_moments",
+            "glcm",
+            "lbp",
+            "hu",
+            "eoh",
+            "deep_cnn",
+            "deep_triplet",
+            "clip",
+            "dinov2",
+        ]
     features = [item.strip() for item in value.split(",") if item.strip()]
     unknown = set(features) - ALL_FEATURES
     if unknown:
@@ -161,6 +173,8 @@ def _batch_size(feature: str) -> int:
 
     if feature == "clip":
         return int(get_settings().features.clip.get("batch_size", 64))
+    if feature == "dinov2":
+        return int(get_settings().features.dinov2.get("batch_size", 32))
     return 32
 
 
@@ -182,7 +196,15 @@ def main() -> None:
     parser.add_argument(
         "--features", default="all", help="all or comma-separated names"
     )
+    parser.add_argument("--cnn-model", default="", help="Checkpoint for deep_cnn index")
+    parser.add_argument(
+        "--triplet-model", default="", help="Checkpoint for deep_triplet index"
+    )
     args = parser.parse_args()
+    if args.cnn_model:
+        os.environ["CBIR_DEEP_CNN_CHECKPOINT"] = args.cnn_model
+    if args.triplet_model:
+        os.environ["CBIR_DEEP_TRIPLET_CHECKPOINT"] = args.triplet_model
     meta = build_index(args.dataset, parse_features(args.features))
     print(json.dumps(meta, ensure_ascii=False, indent=2))
 

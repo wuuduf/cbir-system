@@ -7,11 +7,14 @@
     <el-menu mode="horizontal" :ellipsis="false" router :default-active="$route.path">
       <el-menu-item index="/search">检索</el-menu-item>
       <el-menu-item index="/gallery">图库</el-menu-item>
-      <el-menu-item index="/videos">视频检索</el-menu-item>
       <el-menu-item index="/evaluate">评估</el-menu-item>
-      <el-menu-item index="/pipeline">实验流水线</el-menu-item>
+      <el-menu-item index="/videos">视频检索</el-menu-item>
+      <el-menu-item index="/models">模型训练</el-menu-item>
     </el-menu>
     <div class="toolbar-actions">
+      <el-tooltip content="管理员配置">
+        <el-button circle :icon="Setting" @click="$router.push('/admin')" />
+      </el-tooltip>
       <el-tooltip :content="isDark ? '切换白天模式' : '切换夜间模式'">
         <el-button circle :icon="isDark ? Sunny : Moon" @click="toggleTheme" />
       </el-tooltip>
@@ -20,13 +23,15 @@
   </header>
   <router-view v-slot="{ Component, route }">
     <transition name="page-slide" mode="out-in">
-      <component :is="Component" :key="route.path" />
+      <keep-alive>
+        <component :is="Component" :key="route.path" />
+      </keep-alive>
     </transition>
   </router-view>
 </template>
 
 <script setup>
-import { Moon, Sunny } from '@element-plus/icons-vue'
+import { Moon, Setting, Sunny } from '@element-plus/icons-vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import DatasetSelector from './components/DatasetSelector.vue'
 

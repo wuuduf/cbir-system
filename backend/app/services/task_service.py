@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 import threading
@@ -16,6 +17,10 @@ from uuid import uuid4
 from app.core.config import get_settings
 
 TERMINAL_STATUSES = {"succeeded", "failed", "cancelled"}
+TQDM_RE = re.compile(
+    r"(?P<label>[^:]+):\s+(?P<percent>\d+)%\|.*?\|\s+"
+    r"(?P<current>\d+)/(?P<total>\d+)"
+)
 
 
 def _now() -> str:
@@ -210,6 +215,9 @@ class TaskManager:
             task.updated_at = _now()
 
     def _parse_progress(self, task_id: str, line: str, parser: str | None) -> None:
+        if parser == "index_tqdm":
+            self._parse_tqdm_progress(task_id, line)
+            return
         if parser != "train_json":
             return
         if not line.startswith("{"):
@@ -226,6 +234,27 @@ class TaskManager:
                 task.progress.update(payload)
             if "best_acc" in payload:
                 task.result = payload
+            task.updated_at = _now()
+
+    def _parse_tqdm_progress(self, task_id: str, line: str) -> None:
+        match = TQDM_RE.search(line)
+        if match is None:
+            return
+        current = int(match.group("current"))
+        total = max(int(match.group("total")), 1)
+        percent = max(0, min(100, int(match.group("percent"))))
+        with self._lock:
+            task = self._tasks.get(task_id)
+            if task is None:
+                return
+            task.progress.update(
+                {
+                    "label": match.group("label").strip(),
+                    "current": current,
+                    "total": total,
+                    "percent": percent,
+                }
+            )
             task.updated_at = _now()
 
     def _update(self, task_id: str, **changes: Any) -> None:

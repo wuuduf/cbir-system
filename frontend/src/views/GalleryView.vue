@@ -77,7 +77,18 @@ const displayModeOptions = [
   { label: '原始尺寸', value: 'original' },
   { label: '平滑放大', value: 'smooth' }
 ]
-const allFeatures = ['color_hist', 'color_moments', 'glcm', 'lbp', 'hu', 'eoh', 'deep', 'clip']
+const allFeatures = [
+  'color_hist',
+  'color_moments',
+  'glcm',
+  'lbp',
+  'hu',
+  'eoh',
+  'deep_cnn',
+  'deep_triplet',
+  'clip',
+  'dinov2'
+]
 const busy = computed(() => building.value || mutating.value)
 const busyMessage = computed(() => {
   if (building.value) {

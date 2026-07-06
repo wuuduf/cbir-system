@@ -5,12 +5,5 @@
     "index_dir": "datasets/cifar10/index",
     "count": 60000,
     "num_classes": 10
-  },
-  "corel1000": {
-    "display_name": "Corel-1000",
-    "image_dir": "datasets/corel1000/images",
-    "index_dir": "datasets/corel1000/index",
-    "count": 0,
-    "num_classes": 0
   }
 }

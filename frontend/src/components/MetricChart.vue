@@ -34,31 +34,74 @@ const props = defineProps({
   result: {
     type: Object,
     default: null
+  },
+  comparisonResults: {
+    type: Array,
+    default: () => []
   }
+})
+
+const chartResults = computed(() => {
+  if (props.comparisonResults?.length) {
+    return props.comparisonResults
+  }
+  return props.result ? [props.result] : []
 })
 
 const elapsedText = computed(() => {
-  if (!props.result) {
+  if (!chartResults.value.length) {
     return ''
   }
-  return `${Math.round(props.result.elapsed_ms)} ms`
+  const total = chartResults.value.reduce((sum, item) => sum + Number(item.elapsed_ms || 0), 0)
+  return chartResults.value.length > 1
+    ? `${chartResults.value.length} 组 · ${Math.round(total)} ms`
+    : `${Math.round(chartResults.value[0].elapsed_ms)} ms`
 })
 
 const metricOption = computed(() => {
-  if (!props.result) {
+  if (!chartResults.value.length) {
     return null
   }
+  if (chartResults.value.length > 1) {
+    return {
+      tooltip: { trigger: 'axis' },
+      legend: { top: 0 },
+      grid: { left: 42, right: 16, top: 42, bottom: 46 },
+      xAxis: {
+        type: 'category',
+        data: chartResults.value.map((item) => item.label || item.feature)
+      },
+      yAxis: { type: 'value', min: 0, max: 1 },
+      series: [
+        {
+          name: 'mAP',
+          type: 'bar',
+          data: chartResults.value.map((item) => Number(item.map.toFixed(4))),
+          itemStyle: { color: '#2563eb' },
+          barMaxWidth: 34
+        },
+        {
+          name: `P@${chartResults.value[0].k}`,
+          type: 'bar',
+          data: chartResults.value.map((item) => Number(item.p_at_k.toFixed(4))),
+          itemStyle: { color: '#0f766e' },
+          barMaxWidth: 34
+        }
+      ]
+    }
+  }
+  const current = chartResults.value[0]
   return {
     tooltip: { trigger: 'axis' },
     grid: { left: 42, right: 16, top: 34, bottom: 32 },
-    xAxis: { type: 'category', data: ['mAP', `P@${props.result.k}`] },
+    xAxis: { type: 'category', data: ['mAP', `P@${current.k}`] },
     yAxis: { type: 'value', min: 0, max: 1 },
     series: [
       {
         type: 'bar',
         data: [
-          Number(props.result.map.toFixed(4)),
-          Number(props.result.p_at_k.toFixed(4))
+          Number(current.map.toFixed(4)),
+          Number(current.p_at_k.toFixed(4))
         ],
         itemStyle: { color: '#2563eb' },
         barWidth: 48
@@ -68,12 +111,14 @@ const metricOption = computed(() => {
 })
 
 const prOption = computed(() => {
-  if (!props.result?.pr_curve?.length) {
+  const validResults = chartResults.value.filter((item) => item.pr_curve?.length)
+  if (!validResults.length) {
     return null
   }
   return {
     tooltip: { trigger: 'axis' },
-    grid: { left: 42, right: 16, top: 34, bottom: 32 },
+    legend: { top: 0 },
+    grid: { left: 42, right: 16, top: validResults.length > 1 ? 42 : 34, bottom: 32 },
     xAxis: {
       type: 'value',
       min: 0,
@@ -86,20 +131,23 @@ const prOption = computed(() => {
       max: 1,
       name: 'Precision'
     },
-    series: [
-      {
+    series: validResults.map((item, index) => {
+      const colors = ['#0f766e', '#2563eb', '#f59e0b', '#7c3aed', '#dc2626', '#0891b2', '#65a30d']
+      const color = colors[index % colors.length]
+      return {
+        name: item.label || item.feature,
         type: 'line',
         smooth: true,
         symbolSize: 6,
-        data: props.result.pr_curve.map(([recall, precision]) => [
+        data: item.pr_curve.map(([recall, precision]) => [
           Number(recall.toFixed(3)),
           Number(precision.toFixed(4))
         ]),
-        itemStyle: { color: '#0f766e' },
-        lineStyle: { color: '#0f766e', width: 3 },
-        areaStyle: { color: 'rgba(15, 118, 110, 0.12)' }
+        itemStyle: { color },
+        lineStyle: { color, width: 3 },
+        areaStyle: validResults.length === 1 ? { color: 'rgba(15, 118, 110, 0.12)' } : undefined
       }
-    ]
+    })
   }
 })
 </script>

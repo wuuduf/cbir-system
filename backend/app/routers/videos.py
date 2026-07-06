@@ -69,7 +69,7 @@ def remove_video(video_id: int, db: Session = Depends(get_db)) -> dict[str, bool
 
 @router.post("/index", response_model=VideoIndexResponse)
 def build_index(
-    feature: str = Form("deep"),
+    feature: str = Form("deep_triplet"),
     db: Session = Depends(get_db),
 ) -> VideoIndexResponse:
     """Build a video keyframe index."""
@@ -101,7 +101,7 @@ def import_local_videos(
 @router.post("/search", response_model=VideoSearchResponse)
 async def search_videos(
     file: UploadFile = File(...),
-    feature: str = Form("deep"),
+    feature: str = Form("deep_triplet"),
     metric: str = Form("cosine"),
     top_k: int = Form(6),
     db: Session = Depends(get_db),

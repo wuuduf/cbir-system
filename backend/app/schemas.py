@@ -70,6 +70,83 @@ class EvalResponse(BaseModel):
     elapsed_ms: float = Field(default=0, ge=0)
 
 
+class AdminLoginRequest(BaseModel):
+    """Admin login payload."""
+
+    password: str
+
+
+class AdminLoginResponse(BaseModel):
+    """Admin login result."""
+
+    token: str
+
+
+class AiConfig(BaseModel):
+    """AI provider settings saved on the backend."""
+
+    enabled: bool = False
+    provider: str = "deepseek"
+    base_url: str = "https://api.deepseek.com"
+    model: str = "deepseek-v4-flash"
+    vision_model: str = ""
+    api_key: str = ""
+
+
+class AiConfigResponse(BaseModel):
+    """Safe AI settings returned to the frontend."""
+
+    enabled: bool = False
+    provider: str = "deepseek"
+    base_url: str = "https://api.deepseek.com"
+    model: str = "deepseek-v4-flash"
+    vision_model: str = ""
+    has_api_key: bool = False
+    api_key_hint: str = ""
+
+
+class AiConfigUpdate(BaseModel):
+    """Admin AI settings update."""
+
+    enabled: bool = False
+    provider: str = "deepseek"
+    base_url: str = "https://api.deepseek.com"
+    model: str = "deepseek-v4-flash"
+    vision_model: str = ""
+    api_key: str = ""
+
+
+class EvalAnalysisItem(BaseModel):
+    """One evaluation result sent to the AI analyzer."""
+
+    feature: str
+    feature_label: str
+    metric: str
+    map: float
+    p_at_k: float
+    k: int
+    query_count: int
+    elapsed_ms: float = 0
+    pr_curve: list[tuple[float, float]] = Field(default_factory=list)
+
+
+class EvalAnalysisRequest(BaseModel):
+    """Evaluation analysis request."""
+
+    dataset: str
+    metric: str
+    sample: int
+    items: list[EvalAnalysisItem]
+
+
+class EvalAnalysisResponse(BaseModel):
+    """AI-generated evaluation analysis."""
+
+    provider: str
+    model: str
+    content: str
+
+
 class BuildIndexRequest(BaseModel):
     """Index build request."""
 
@@ -131,6 +208,7 @@ class TrainModelRequest(BaseModel):
     workers: int = Field(default=2, ge=0, le=16)
     amp: bool = True
     label_level: str = Field(default="fine", pattern="^(fine|coarse)$")
+    output: str = "../data/models/cifar_resnet18.pt"
 
 
 class TrainMetricModelRequest(TrainModelRequest):
@@ -148,14 +226,23 @@ class PipelineIndexRequest(BaseModel):
     """Request to rebuild feature indexes as a background task."""
 
     dataset: str
-    features: list[str] = Field(default_factory=lambda: ["deep"])
+    features: list[str] = Field(default_factory=lambda: ["deep_triplet"])
+    deep_model: str | None = None
+    cnn_model: str | None = None
+    triplet_model: str | None = None
+
+
+class ActiveDeepModelRequest(BaseModel):
+    """Request to select the active deep feature checkpoint."""
+
+    path: str
 
 
 class PipelineEvaluateRequest(BaseModel):
     """Request to evaluate a feature through the task panel."""
 
     dataset: str = "cifar10"
-    feature: str = "deep"
+    feature: str = "deep_triplet"
     metric: str = "cosine"
     k: int = Field(default=12, ge=1, le=100)
     sample: int = Field(default=100, ge=1, le=5000)

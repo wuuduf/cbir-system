@@ -10,7 +10,9 @@ const router = createRouter({
     { path: '/gallery', component: () => import('../views/GalleryView.vue') },
     { path: '/videos', component: () => import('../views/VideoView.vue') },
     { path: '/evaluate', component: () => import('../views/EvaluateView.vue') },
-    { path: '/pipeline', component: () => import('../views/PipelineView.vue') }
+    { path: '/models', component: () => import('../views/PipelineView.vue') },
+    { path: '/admin', component: () => import('../views/AdminView.vue') },
+    { path: '/pipeline', redirect: '/models' }
   ]
 })
 

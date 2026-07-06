@@ -57,6 +57,14 @@
         <strong>{{ selectedFeatureLabel }} 推荐：{{ recommendedMetricLabel }}</strong>
         <p>{{ selectedFeatureTip }}</p>
       </div>
+      <div v-if="selectedDeepModel" class="model-hint">
+        <strong>当前模型：{{ selectedDeepModel.name }}</strong>
+        <p>
+          {{ deepModelKind(selectedDeepModel) }}
+          <template v-if="selectedDeepModel.best_acc"> · acc {{ numberText(selectedDeepModel.best_acc) }}</template>
+          <template v-if="selectedDeepModel.best_p_at_k"> · P@K {{ numberText(selectedDeepModel.best_p_at_k) }}</template>
+        </p>
+      </div>
       <div v-if="feature === 'fusion'" class="weights">
         <label v-for="item in weightItems" :key="item.key">
           <span>{{ item.label }} {{ normalizedWeights[item.key].toFixed(2) }}</span>
@@ -72,7 +80,8 @@
 
 <script setup>
 import { Search, UploadFilled } from '@element-plus/icons-vue'
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { fetchDeepModels } from '../api/cbir'
 
 const emit = defineEmits(['search', 'text-search'])
 defineProps({
@@ -87,6 +96,7 @@ const previewUrl = ref('')
 const textQuery = ref('')
 const feature = ref('color_hist')
 const metric = ref('intersection')
+const deepModels = ref([])
 
 // 特征按类型分组：颜色 / 纹理 / 形状 / 深度与综合，每组包含若干具体特征。
 const featureGroups = [
@@ -154,13 +164,25 @@ const featureGroups = [
     key: 'advanced',
     label: '深度与综合',
     desc: '语义特征与多特征融合',
-    columns: 3,
+    columns: 2,
     items: [
       {
-        value: 'deep',
-        label: '深度特征',
+        value: 'deep_cnn',
+        label: 'CNN 深度',
         recommendedMetric: 'cosine',
-        tip: '深度特征已经做 L2 归一化，余弦相似度能稳定比较语义方向是否接近。'
+        tip: 'CNN 深度特征来自自训练 CIFAR ResNet18 分类模型，适合作为深度分类特征基线。'
+      },
+      {
+        value: 'deep_triplet',
+        label: 'Triplet 度量',
+        recommendedMetric: 'cosine',
+        tip: 'Triplet 度量特征来自三元组损失训练模型，训练目标更贴近同类图片聚集和异类图片分离。'
+      },
+      {
+        value: 'dinov2',
+        label: 'DINOv2',
+        recommendedMetric: 'cosine',
+        tip: 'DINOv2 是自监督 ViT 视觉特征，不依赖人工文本标签，更适合比较物体结构、局部视觉形态和纯视觉相似性。'
       },
       {
         value: 'clip',
@@ -208,6 +230,15 @@ const selectedFeatureTip = computed(() => selectedFeature.value.tip)
 const recommendedMetricLabel = computed(() => {
   return metricOptions.find((item) => item.value === selectedFeature.value.recommendedMetric)?.label || ''
 })
+const selectedDeepModel = computed(() => {
+  if (feature.value === 'deep_cnn') {
+    return deepModels.value.find((model) => model.name === 'cifar_resnet18.pt') || null
+  }
+  if (feature.value === 'deep_triplet') {
+    return deepModels.value.find((model) => model.name === 'cifar_resnet18_metric.pt') || null
+  }
+  return null
+})
 
 watch(feature, () => {
   metric.value = selectedFeature.value.recommendedMetric
@@ -250,6 +281,23 @@ function submitText() {
     emit('text-search', { text })
   }
 }
+
+function deepModelKind(model) {
+  return model.training_objective ? 'Triplet 度量学习模型' : '分类 CNN 模型'
+}
+
+function numberText(value) {
+  return Number(value).toFixed(4)
+}
+
+onMounted(async () => {
+  try {
+    const result = await fetchDeepModels()
+    deepModels.value = result.models || []
+  } catch {
+    deepModels.value = []
+  }
+})
 </script>
 
 <style scoped>
@@ -380,6 +428,26 @@ function submitText() {
 }
 
 .metric-hint p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.model-hint {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, #0f766e, transparent 68%);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--control-bg), #0f766e 7%);
+}
+
+.model-hint strong {
+  font-size: 13px;
+}
+
+.model-hint p {
   margin: 0;
   color: var(--text-muted);
   font-size: 12px;

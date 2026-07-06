@@ -15,7 +15,7 @@ router = APIRouter(prefix="/api/evaluate", tags=["evaluate"])
 @router.get("", response_model=EvalResponse)
 def evaluate(
     dataset: str = Query(...),
-    feature: str = Query("deep"),
+    feature: str = Query("deep_triplet"),
     metric: str = Query("cosine"),
     k: int = Query(12, ge=1, le=100),
     sample: int | None = Query(100, ge=1, le=5000),

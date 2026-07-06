@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from app.core.config import get_settings
 from app.core.device import get_device_status
 from app.db.database import init_db
-from app.routers import datasets, evaluate, images, pipeline, search, videos
+from app.routers import admin, datasets, evaluate, images, pipeline, search, videos
 
 
 def _include_flat_router(app: FastAPI, router: APIRouter) -> None:
@@ -39,6 +39,7 @@ def create_app() -> FastAPI:
     _include_flat_router(app, evaluate.router)
     _include_flat_router(app, pipeline.router)
     _include_flat_router(app, videos.router)
+    _include_flat_router(app, admin.router)
     return app
 
 

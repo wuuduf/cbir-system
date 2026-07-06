@@ -6,6 +6,7 @@ import json
 import time
 from typing import Protocol
 
+import numpy as np
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -24,7 +25,10 @@ SUPPORTED_FEATURES = {
     "hu",
     "eoh",
     "deep",
+    "deep_cnn",
+    "deep_triplet",
     "clip",
+    "dinov2",
     "fusion",
 }
 SUPPORTED_METRICS = {"intersection", "cosine", "euclidean", "weighted"}
@@ -32,9 +36,32 @@ FUSION_FEATURES = {
     "color": "color_hist",
     "texture": "glcm",
     "shape": "hu",
-    "deep": "deep",
+    "deep": "deep_triplet",
 }
 INDEX_STORE = IndexStore()
+CALIBRATED_DEEP_FEATURES = {"deep", "deep_cnn", "deep_triplet"}
+CIFAR10_PROMPTS = [
+    "a photo of an airplane",
+    "a photo of an automobile",
+    "a photo of a bird",
+    "a photo of a cat",
+    "a photo of a deer",
+    "a photo of a dog",
+    "a photo of a frog",
+    "a photo of a horse",
+    "a photo of a ship",
+    "a photo of a truck",
+]
+OOD_PROMPTS = [
+    "a portrait photo of a person",
+    "a human face",
+    "an ID photo",
+    "a document photo",
+    "a photo of food",
+    "a photo of a building",
+    "a photo of a flower",
+]
+_CLIP_PROMPT_CACHE: dict[str, np.ndarray] = {}
 
 
 class TextFeatureExtractor(Protocol):
@@ -77,6 +104,12 @@ def search_uploaded(
 
     retriever = Retriever(store=INDEX_STORE, db=db)
     limit = top_k or get_settings().app.top_k
+    query_info: dict[str, str | int | float | bool | None] = {
+        "dataset": dataset,
+        "feature": feature,
+        "metric": metric,
+        "image": image_name,
+    }
     if feature == "fusion":
         weights = _parse_weights(weights_json)
         query_vectors = {
@@ -89,14 +122,11 @@ def search_uploaded(
         extractor = get_extractor(feature)
         query_vec = extractor.extract(img_bgr)
         hits = retriever.search_single(dataset, feature, query_vec, metric, limit)
+        if file_bytes and dataset == "cifar10" and feature in CALIBRATED_DEEP_FEATURES:
+            query_info.update(_calibrate_cifar10_deep_scores(img_bgr, hits))
     elapsed_ms = (time.perf_counter() - start) * 1000
     return SearchResponse(
-        query={
-            "dataset": dataset,
-            "feature": feature,
-            "metric": metric,
-            "image": image_name,
-        },
+        query=query_info,
         hits=hits,
         elapsed_ms=elapsed_ms,
     )
@@ -159,3 +189,53 @@ def _parse_weights(weights_json: str | None) -> dict[str, float]:
     if not weights or sum(weights.values()) <= 0:
         raise ValueError("融合权重至少需要一个大于 0")
     return weights
+
+
+def _calibrate_cifar10_deep_scores(img_bgr, hits) -> dict[str, str | float | bool]:
+    """Down-weight CIFAR deep scores when CLIP sees an out-of-distribution query."""
+
+    try:
+        confidence, top_prompt = _clip_cifar10_membership(img_bgr)
+    except Exception as exc:  # noqa: BLE001 - search should still work without calibration
+        return {"score_calibrated": False, "calibration_error": str(exc)}
+    scale = _cifar10_score_scale(confidence)
+    for hit in hits:
+        hit.score = float(hit.score) * scale
+    return {
+        "score_calibrated": True,
+        "cifar10_confidence": float(confidence),
+        "score_scale": float(scale),
+        "clip_gate_top_prompt": top_prompt,
+    }
+
+
+def _clip_cifar10_membership(img_bgr) -> tuple[float, str]:
+    """Estimate whether a query image belongs to CIFAR-10 semantic classes."""
+
+    extractor = get_extractor("clip")
+    if not hasattr(extractor, "extract_text"):
+        raise RuntimeError("clip extractor missing extract_text")
+    image_vec = extractor.extract(img_bgr)
+    text_matrix = _clip_prompt_matrix(extractor)
+    scores = image_vec @ text_matrix.T
+    exp_scores = np.exp((scores - scores.max()) * 50.0)
+    probs = exp_scores / max(float(exp_scores.sum()), 1e-12)
+    cifar_confidence = float(probs[: len(CIFAR10_PROMPTS)].sum())
+    prompts = CIFAR10_PROMPTS + OOD_PROMPTS
+    return cifar_confidence, prompts[int(np.argmax(probs))]
+
+
+def _clip_prompt_matrix(extractor) -> np.ndarray:
+    cache_key = "cifar10_ood_prompts"
+    if cache_key not in _CLIP_PROMPT_CACHE:
+        prompts = CIFAR10_PROMPTS + OOD_PROMPTS
+        _CLIP_PROMPT_CACHE[cache_key] = np.vstack(
+            [extractor.extract_text(prompt) for prompt in prompts]
+        ).astype(np.float32)
+    return _CLIP_PROMPT_CACHE[cache_key]
+
+
+def _cifar10_score_scale(confidence: float) -> float:
+    """Map CLIP CIFAR membership into a display-score multiplier."""
+
+    return float(np.clip((confidence - 0.10) / 0.60, 0.08, 1.0))

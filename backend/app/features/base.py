@@ -34,7 +34,8 @@ def _ensure_defaults() -> None:
         return
     from app.features.color import ColorMoments, HSVHistogram
     from app.features.clip import CLIPFeature
-    from app.features.deep import ResNet50Feature
+    from app.features.deep import CIFARResNet18Feature, ResNet50Feature, TripletResNet18Feature
+    from app.features.dinov2 import DINOv2Feature
     from app.features.shape import EdgeOrientationHistogram, HuMoments
     from app.features.texture import GLCM, LBP
 
@@ -45,7 +46,10 @@ def _ensure_defaults() -> None:
     register(HuMoments())
     register(EdgeOrientationHistogram())
     register(ResNet50Feature())
+    register(CIFARResNet18Feature())
+    register(TripletResNet18Feature())
     register(CLIPFeature())
+    register(DINOv2Feature())
     _DEFAULTS_READY = True
 
 

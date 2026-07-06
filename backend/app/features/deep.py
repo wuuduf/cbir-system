@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import os
+
 import cv2
 import numpy as np
 
 from app.core.config import get_settings
 from app.core.device import get_device
 from app.features.base import FeatureExtractor
+from app.services.model_service import get_active_deep_model_path
 
 
 class ResNet50Feature(FeatureExtractor):
@@ -21,7 +24,7 @@ class ResNet50Feature(FeatureExtractor):
         self._model = None
         self._weights = None
         self._torch = None
-        self._checkpoint_stamp: float | None = None
+        self._checkpoint_stamp: str | None = None
 
     def extract(self, img_bgr: np.ndarray) -> np.ndarray:
         """Extract one L2-normalized 2048D deep feature."""
@@ -89,9 +92,11 @@ class ResNet50Feature(FeatureExtractor):
         self.dim = 2048
         return model, preprocess, torch
 
-    def _custom_checkpoint_stamp(self) -> float | None:
+    def _custom_checkpoint_stamp(self) -> str | None:
         checkpoint_path = self._resolve_custom_checkpoint()
-        return checkpoint_path.stat().st_mtime if checkpoint_path is not None else None
+        if checkpoint_path is None:
+            return None
+        return f"{checkpoint_path.resolve()}::{checkpoint_path.stat().st_mtime}"
 
     def _load_custom_model(self):
         settings = get_settings()
@@ -133,7 +138,7 @@ class ResNet50Feature(FeatureExtractor):
             "best_acc": float(checkpoint.get("best_acc", 0.0)),
         }
         self.dim = feature_dim
-        self._checkpoint_stamp = checkpoint_path.stat().st_mtime
+        self._checkpoint_stamp = self._custom_checkpoint_stamp()
         return model, preprocess, torch
 
     def _resolve_custom_checkpoint(self):
@@ -145,11 +150,17 @@ class ResNet50Feature(FeatureExtractor):
                 "checkpoint", "../data/models/cifar_resnet18_metric.pt"
             )
         )
-        candidates = [
-            settings.resolve_backend_path(checkpoint_value),
-            settings.resolve_backend_path("../data/models/cifar_resnet18_metric.pt"),
-            settings.resolve_backend_path("../data/models/cifar_resnet18.pt"),
-        ]
+        active_checkpoint = get_active_deep_model_path()
+        candidates = []
+        if active_checkpoint is not None:
+            candidates.append(active_checkpoint)
+        candidates.extend(
+            [
+                settings.resolve_backend_path(checkpoint_value),
+                settings.resolve_backend_path("../data/models/cifar_resnet18_metric.pt"),
+                settings.resolve_backend_path("../data/models/cifar_resnet18.pt"),
+            ]
+        )
         for candidate in candidates:
             if candidate.exists():
                 return candidate
@@ -166,3 +177,49 @@ class ResNet50Feature(FeatureExtractor):
         mean = torch.tensor(preprocess["mean"], dtype=torch.float32).view(3, 1, 1)
         std = torch.tensor(preprocess["std"], dtype=torch.float32).view(3, 1, 1)
         return (tensor - mean) / std
+
+
+class CIFARResNet18Feature(ResNet50Feature):
+    """Fixed self-trained CIFAR CNN feature extractor."""
+
+    name = "deep_cnn"
+
+    def _resolve_custom_checkpoint(self):
+        override = _checkpoint_from_env("CBIR_DEEP_CNN_CHECKPOINT")
+        if override is not None:
+            return override
+        checkpoint_path = get_settings().data_root_path / "models" / "cifar_resnet18.pt"
+        return checkpoint_path if checkpoint_path.exists() else None
+
+    def _load_resnet50(self):
+        raise FileNotFoundError(
+            "deep_cnn requires data/models/cifar_resnet18.pt. Train the CNN model first."
+        )
+
+
+class TripletResNet18Feature(ResNet50Feature):
+    """Fixed Triplet Loss metric-learning CIFAR feature extractor."""
+
+    name = "deep_triplet"
+
+    def _resolve_custom_checkpoint(self):
+        override = _checkpoint_from_env("CBIR_DEEP_TRIPLET_CHECKPOINT")
+        if override is not None:
+            return override
+        checkpoint_path = get_settings().data_root_path / "models" / "cifar_resnet18_metric.pt"
+        return checkpoint_path if checkpoint_path.exists() else None
+
+    def _load_resnet50(self):
+        raise FileNotFoundError(
+            "deep_triplet requires data/models/cifar_resnet18_metric.pt. Train the Triplet model first."
+        )
+
+
+def _checkpoint_from_env(name: str):
+    value = os.environ.get(name, "").strip()
+    if not value:
+        return None
+    path = get_settings().resolve_backend_path(value)
+    if not path.exists():
+        raise FileNotFoundError(f"{name} 指向的模型不存在: {path}")
+    return path

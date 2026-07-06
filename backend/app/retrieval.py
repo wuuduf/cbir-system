@@ -133,7 +133,7 @@ class Retriever:
             dataset, feature, query_vec.astype(np.float32)
         )
         effective_metric = self._effective_metric(feature, metric)
-        if feature in {"deep", "clip"} and effective_metric == "cosine":
+        if feature in {"deep", "deep_cnn", "deep_triplet", "clip", "dinov2"} and effective_metric == "cosine":
             return self._search_faiss(dataset, feature, transformed_query, top_k)
         scores = self._score(transformed_query, matrix, effective_metric)
         order = np.argsort(-scores)[:top_k]
@@ -206,7 +206,10 @@ class Retriever:
             "lbp",
             "eoh",
             "deep",
+            "deep_cnn",
+            "deep_triplet",
             "clip",
+            "dinov2",
         }:
             return "cosine"
         return metric

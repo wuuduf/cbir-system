@@ -10,68 +10,130 @@
     <section class="panel header-panel">
       <div>
         <strong>视频检索</strong>
-        <p class="muted">上传视频抽取关键帧，复用图像特征建立视频索引，再用图片检索相似视频。</p>
+        <p class="muted">上传视频抽取关键帧，建立视频索引，再用图片检索相似视频。</p>
       </div>
-      <el-button :loading="busy" @click="loadVideos">刷新</el-button>
+      <div class="header-actions">
+        <div class="mini-stat">
+          <span>视频库</span>
+          <strong>{{ total }}</strong>
+        </div>
+        <div class="mini-stat">
+          <span>结果</span>
+          <strong>{{ hits.length }}</strong>
+        </div>
+        <el-button :loading="busy" @click="loadVideos">刷新</el-button>
+        <el-button text :disabled="!hasSavedState" @click="clearSavedState">清空缓存</el-button>
+      </div>
     </section>
 
-    <section class="video-grid">
-      <div class="panel tool-panel">
-        <strong>视频管理</strong>
-        <el-form label-position="top">
-          <el-form-item label="关键帧间隔（秒）">
-            <el-input-number v-model="uploadForm.intervalSeconds" :min="0.5" :max="30" :step="0.5" />
-          </el-form-item>
-          <el-form-item label="最多关键帧">
-            <el-input-number v-model="uploadForm.maxKeyframes" :min="1" :max="500" />
-          </el-form-item>
-          <el-upload
-            drag
-            :auto-upload="false"
-            :show-file-list="false"
-            accept="video/mp4,video/webm,video/avi,video/x-msvideo,video/quicktime"
-            :on-change="handleVideoUpload"
-          >
-            <div class="upload-copy">拖入或选择视频</div>
-          </el-upload>
-          <div class="incoming-box">
-            <span class="muted">本地同步目录</span>
-            <code>{{ incomingDir }}</code>
-            <el-button type="primary" plain :loading="busy" @click="importIncomingVideos">
-              扫描导入本地视频
-            </el-button>
-          </div>
-        </el-form>
-      </div>
+    <section class="workspace-grid">
+      <section class="panel tool-panel">
+        <div class="panel-head">
+          <strong>视频管理</strong>
+          <span class="muted">导入视频并抽取关键帧</span>
+        </div>
 
-      <div class="panel tool-panel">
-        <strong>索引与检索</strong>
-        <el-form label-position="top">
-          <div class="form-row">
-            <el-form-item label="视频特征">
-              <el-select v-model="searchForm.feature">
-                <el-option v-for="item in featureOptions" :key="item.value" :label="item.label" :value="item.value" />
-              </el-select>
-            </el-form-item>
-            <el-form-item label="相似度">
-              <el-select v-model="searchForm.metric">
-                <el-option label="余弦相似度" value="cosine" />
-                <el-option label="直方图相交" value="intersection" />
-                <el-option label="欧氏距离" value="euclidean" />
-                <el-option label="加权距离" value="weighted" />
-              </el-select>
-            </el-form-item>
+        <div class="settings-row">
+          <label class="setting-item">
+            <span>关键帧间隔（秒）</span>
+            <el-input-number v-model="uploadForm.intervalSeconds" :min="0.5" :max="30" :step="0.5" />
+          </label>
+          <label class="setting-item">
+            <span>最多关键帧</span>
+            <el-input-number v-model="uploadForm.maxKeyframes" :min="1" :max="500" />
+          </label>
+        </div>
+
+        <el-upload
+          class="video-uploader"
+          drag
+          :auto-upload="false"
+          :show-file-list="false"
+          accept="video/mp4,video/webm,video/avi,video/x-msvideo,video/quicktime"
+          :on-change="handleVideoUpload"
+        >
+          <div class="upload-copy">
+            <strong>拖入或选择视频</strong>
+            <span>mp4 / webm / avi / mov</span>
           </div>
-          <div class="actions">
-            <el-button type="primary" :loading="busy" @click="buildIndex">构建视频索引</el-button>
-            <el-upload :auto-upload="false" :show-file-list="false" accept="image/*" :on-change="handleQueryImage">
-              <el-button :loading="busy">选择查询图</el-button>
-            </el-upload>
-            <el-button type="primary" plain :disabled="!queryFile" :loading="busy" @click="searchVideos">搜视频</el-button>
+        </el-upload>
+
+        <div class="incoming-box">
+          <div>
+            <strong>本地同步目录</strong>
+            <code>{{ incomingDir }}</code>
           </div>
-          <img v-if="queryPreview" class="query-preview" :src="queryPreview" alt="查询图" />
-        </el-form>
-      </div>
+          <el-button type="primary" plain :loading="busy" @click="importIncomingVideos">
+            扫描导入
+          </el-button>
+        </div>
+
+        <div class="video-summary">
+          <span>当前处理配置</span>
+          <div>
+            <span class="summary-item"><strong>{{ uploadForm.intervalSeconds }}s</strong><small>抽帧间隔</small></span>
+            <span class="summary-item"><strong>{{ uploadForm.maxKeyframes }}</strong><small>最多关键帧</small></span>
+            <span class="summary-item"><strong>{{ total }}</strong><small>视频库</small></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel tool-panel">
+        <div class="panel-head">
+          <strong>索引与检索</strong>
+          <span class="muted">{{ selectedFeatureTip }}</span>
+        </div>
+
+        <div class="form-row">
+          <label class="setting-item">
+            <span>视频特征</span>
+            <el-select v-model="searchForm.feature">
+              <el-option v-for="item in featureOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </label>
+          <label class="setting-item">
+            <span>相似度</span>
+            <el-select v-model="searchForm.metric">
+              <el-option label="余弦相似度" value="cosine" />
+              <el-option label="直方图相交" value="intersection" />
+              <el-option label="欧氏距离" value="euclidean" />
+              <el-option label="加权距离" value="weighted" />
+            </el-select>
+          </label>
+        </div>
+
+        <el-upload
+          class="query-uploader"
+          drag
+          :auto-upload="false"
+          :show-file-list="false"
+          accept="image/*"
+          :on-change="handleQueryImage"
+        >
+          <div class="query-drop">
+            <img v-if="queryPreview" class="query-preview" :src="queryPreview" alt="查询图" />
+            <div v-else class="query-empty">
+              <strong>拖入或选择查询图</strong>
+              <span>支持 JPG / PNG / WEBP</span>
+            </div>
+          </div>
+        </el-upload>
+        <span v-if="queryPreview && !queryFile" class="preview-note">
+          已恢复上次预览；重新搜索需重新选择图片。
+        </span>
+
+        <div class="action-row">
+          <el-button type="primary" :loading="busy" @click="buildIndex">构建索引</el-button>
+          <el-button type="primary" plain :disabled="!queryFile" :loading="busy" @click="searchVideos">
+            搜视频
+          </el-button>
+        </div>
+
+        <div class="feature-note">
+          <strong>{{ selectedFeatureLabel }}</strong>
+          <span>{{ selectedMetricText }}</span>
+        </div>
+      </section>
     </section>
 
     <section class="panel result-panel">
@@ -110,7 +172,7 @@
           </div>
         </div>
       </div>
-      <el-empty v-else description="上传查询图片后显示相似视频" />
+      <el-empty v-else description="选择查询图片后显示相似视频" />
     </section>
 
     <section class="panel library-panel">
@@ -123,9 +185,7 @@
           <video controls :src="video.url" />
           <div class="video-meta">
             <strong>{{ video.name }}</strong>
-            <span class="muted">
-              {{ formatTime(video.duration) }}，{{ video.keyframe_count }} 个关键帧
-            </span>
+            <span class="muted">{{ formatTime(video.duration) }}，{{ video.keyframe_count }} 个关键帧</span>
           </div>
           <div class="keyframes">
             <img v-for="frame in video.keyframes" :key="frame.id" :src="frame.url" alt="关键帧" />
@@ -151,42 +211,48 @@ import {
   uploadVideo
 } from '../api/cbir'
 
+const VIDEO_CACHE_KEY = 'cbir-video-state-v5'
+
 const featureOptions = [
-  { label: '深度特征', value: 'deep' },
-  { label: 'HSV 直方图', value: 'color_hist' },
-  { label: '颜色矩', value: 'color_moments' },
-  { label: 'GLCM', value: 'glcm' },
-  { label: 'LBP', value: 'lbp' },
-  { label: 'Hu', value: 'hu' },
-  { label: 'EOH', value: 'eoh' }
+  { label: 'CNN 深度特征', value: 'deep_cnn', tip: '分类 CNN 更关注类别语义，适合找同类视频；排序会综合多帧降低误匹配。' },
+  { label: 'Triplet 度量特征', value: 'deep_triplet', tip: 'Triplet 更适合找具体相似片段，适合当前这种鸟图定位视频。' },
+  { label: 'DINOv2 自监督特征', value: 'dinov2', tip: 'DINOv2 更关注视觉结构和局部形态，适合精确视觉相似。' },
+  { label: 'HSV 直方图', value: 'color_hist', tip: 'HSV 主要比较整体颜色分布。' },
+  { label: '颜色矩', value: 'color_moments', tip: '颜色矩比较颜色统计量，速度快但语义较弱。' },
+  { label: 'GLCM', value: 'glcm', tip: 'GLCM 比较纹理统计关系。' },
+  { label: 'LBP', value: 'lbp', tip: 'LBP 比较局部纹理模式。' },
+  { label: 'Hu', value: 'hu', tip: 'Hu 矩更偏形状轮廓。' },
+  { label: 'EOH', value: 'eoh', tip: 'EOH 比较边缘方向分布。' }
 ]
 
-const uploadForm = reactive({
-  intervalSeconds: 2,
-  maxKeyframes: 60
-})
-const searchForm = reactive({
-  feature: 'deep',
-  metric: 'cosine'
-})
+const uploadForm = reactive({ intervalSeconds: 2, maxKeyframes: 60 })
+const searchForm = reactive({ feature: 'deep_triplet', metric: 'cosine' })
 const videos = ref([])
 const total = ref(0)
 const hits = ref([])
 const elapsed = ref(0)
 const queryFile = ref(null)
 const queryPreview = ref('')
+const hasSavedState = ref(false)
 const incomingDir = 'C:\\Users\\wgq20\\Documents\\CBIR\\cbir-system\\data\\videos\\incoming'
 const busy = ref(false)
 const busyTitle = ref('正在处理')
 const bestHit = computed(() => hits.value[0] || null)
 const candidateHits = computed(() => hits.value.slice(1, 4))
+const selectedFeature = computed(() => featureOptions.find((item) => item.value === searchForm.feature) || featureOptions[0])
+const selectedFeatureLabel = computed(() => selectedFeature.value.label)
+const selectedFeatureTip = computed(() => selectedFeature.value.tip)
+const selectedMetricText = computed(() => `当前使用 ${metricName(searchForm.metric)}，Top-K 返回 4 个视频。`)
 
 watch(
   () => searchForm.feature,
   (feature) => {
     searchForm.metric = ['color_hist', 'lbp', 'eoh'].includes(feature) ? 'intersection' : 'cosine'
+    saveState()
   }
 )
+
+watch(() => [uploadForm.intervalSeconds, uploadForm.maxKeyframes, searchForm.metric], saveState)
 
 async function runBusy(title, action) {
   busyTitle.value = title
@@ -202,6 +268,7 @@ async function loadVideos() {
   const result = await fetchVideos({ page: 1, size: 50 })
   videos.value = result.items
   total.value = result.total
+  saveState()
 }
 
 async function handleVideoUpload(uploadFile) {
@@ -228,18 +295,16 @@ async function importIncomingVideos() {
       ElMessage.info('没有发现可导入的视频')
     }
     if (result.skipped.length) {
-      ElMessage.warning(`跳过 ${result.skipped.length} 个文件，请查看格式或文件是否可读`)
+      ElMessage.warning(`跳过 ${result.skipped.length} 个文件，请检查格式或文件是否可读`)
     }
     await loadVideos()
   })
 }
 
-function handleQueryImage(uploadFile) {
+async function handleQueryImage(uploadFile) {
   queryFile.value = uploadFile.raw
-  if (queryPreview.value) {
-    URL.revokeObjectURL(queryPreview.value)
-  }
-  queryPreview.value = URL.createObjectURL(uploadFile.raw)
+  queryPreview.value = await fileToDataUrl(uploadFile.raw)
+  saveState()
 }
 
 async function buildIndex() {
@@ -260,6 +325,7 @@ async function searchVideos() {
     })
     hits.value = result.hits
     elapsed.value = result.elapsed_ms
+    saveState()
   })
 }
 
@@ -278,6 +344,68 @@ async function removeVideo(video) {
   await loadVideos()
 }
 
+function saveState() {
+  const payload = {
+    uploadForm: { ...uploadForm },
+    searchForm: { ...searchForm },
+    videos: videos.value,
+    total: total.value,
+    hits: hits.value,
+    elapsed: elapsed.value,
+    queryPreview: queryPreview.value,
+    savedAt: new Date().toISOString()
+  }
+  localStorage.setItem(VIDEO_CACHE_KEY, JSON.stringify(payload))
+  hasSavedState.value = true
+}
+
+function restoreState() {
+  const raw = localStorage.getItem(VIDEO_CACHE_KEY)
+  hasSavedState.value = Boolean(raw)
+  if (!raw) return
+  try {
+    const payload = JSON.parse(raw)
+    Object.assign(uploadForm, payload.uploadForm || {})
+    Object.assign(searchForm, payload.searchForm || {})
+    videos.value = Array.isArray(payload.videos) ? payload.videos : []
+    total.value = Number(payload.total || 0)
+    hits.value = Array.isArray(payload.hits) ? payload.hits : []
+    elapsed.value = Number(payload.elapsed || 0)
+    queryPreview.value = payload.queryPreview || ''
+  } catch {
+    localStorage.removeItem(VIDEO_CACHE_KEY)
+    hasSavedState.value = false
+  }
+}
+
+function clearSavedState() {
+  localStorage.removeItem(VIDEO_CACHE_KEY)
+  hasSavedState.value = false
+  hits.value = []
+  elapsed.value = 0
+  queryFile.value = null
+  queryPreview.value = ''
+  ElMessage.success('视频检索缓存已清空')
+}
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || ''))
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
+function metricName(value) {
+  return {
+    cosine: '余弦相似度',
+    intersection: '直方图相交',
+    euclidean: '欧氏距离',
+    weighted: '加权距离'
+  }[value] || value
+}
+
 function formatTime(value) {
   const seconds = Math.max(Number(value) || 0, 0)
   const minute = Math.floor(seconds / 60)
@@ -289,7 +417,10 @@ function formatScore(value) {
   return `相似度 ${(Math.max(Number(value) || 0, 0) * 100).toFixed(2)}%`
 }
 
-onMounted(loadVideos)
+onMounted(async () => {
+  restoreState()
+  await loadVideos()
+})
 </script>
 
 <style scoped>
@@ -300,7 +431,8 @@ onMounted(loadVideos)
 
 .header-panel,
 .section-title,
-.actions {
+.header-actions,
+.action-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -311,50 +443,227 @@ onMounted(loadVideos)
   margin: 6px 0 0;
 }
 
-.video-grid {
+.header-actions,
+.action-row {
+  flex-wrap: wrap;
+}
+
+.mini-stat {
+  display: grid;
+  min-width: 68px;
+  padding: 7px 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--control-bg);
+}
+
+.mini-stat span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.mini-stat strong {
+  color: var(--text-main);
+  font-size: 20px;
+  line-height: 1.1;
+}
+
+.workspace-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
+  align-items: stretch;
 }
 
 .tool-panel {
   display: grid;
   gap: 14px;
+  align-content: start;
+  padding: 18px;
 }
 
+.panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.panel-head strong {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.panel-head .muted {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.settings-row,
 .form-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
-.upload-copy {
-  padding: 22px 0;
+.setting-item {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.setting-item span {
   color: var(--text-muted);
+  font-size: 14px;
+}
+
+.setting-item :deep(.el-input-number),
+.setting-item :deep(.el-select) {
+  width: 100%;
+}
+
+.upload-copy {
+  display: grid;
+  place-items: center;
+  gap: 5px;
+  min-height: 108px;
+  color: var(--text-muted);
+}
+
+.upload-copy strong {
+  color: var(--text-main);
+}
+
+:deep(.el-upload-dragger) {
+  padding: 12px;
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(15, 118, 110, 0.07)),
+    var(--panel-solid);
 }
 
 .incoming-box {
   display: grid;
-  gap: 8px;
-  padding: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
   border: 1px solid var(--panel-border);
   border-radius: 8px;
   background: color-mix(in srgb, var(--control-bg), var(--accent) 4%);
 }
 
+.incoming-box div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
 .incoming-box code {
-  overflow-wrap: anywhere;
+  overflow: hidden;
   color: var(--text-main);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.video-summary {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent-2), transparent 70%);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent), transparent 92%), transparent),
+    var(--control-bg);
+}
+
+.video-summary > span {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.video-summary > div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.video-summary .summary-item {
+  display: grid;
+  gap: 3px;
+  justify-items: center;
+  min-width: 0;
+}
+
+.video-summary .summary-item strong,
+.video-summary .summary-item small {
+  display: block;
+  min-width: 0;
+  text-align: center;
+}
+
+.video-summary .summary-item strong {
+  color: var(--text-main);
+  font-size: 17px;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.video-summary .summary-item small {
+  color: var(--text-muted);
   font-size: 12px;
 }
 
+.query-uploader {
+  width: 100%;
+}
+
+.query-drop {
+  display: grid;
+  place-items: center;
+  min-height: 176px;
+}
+
 .query-preview {
-  width: 160px;
-  aspect-ratio: 4 / 3;
+  width: 100%;
+  max-height: 176px;
   object-fit: contain;
-  border: 1px solid var(--panel-border);
+}
+
+.query-empty {
+  display: grid;
+  place-items: center;
+  gap: 5px;
+  color: var(--text-muted);
+}
+
+.query-empty strong {
+  color: var(--text-main);
+}
+
+.preview-note {
+  margin-top: -6px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.feature-note {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent), transparent 70%);
   border-radius: 8px;
-  background: var(--control-bg);
+  background: color-mix(in srgb, var(--control-bg), var(--accent) 5%);
+}
+
+.feature-note strong {
+  font-size: 14px;
+}
+
+.feature-note span {
+  color: var(--text-muted);
+  font-size: 13px;
 }
 
 .result-panel,
@@ -507,17 +816,23 @@ video {
   background: var(--control-bg);
 }
 
-@media (max-width: 900px) {
-  .video-grid,
-  .form-row,
+@media (max-width: 1050px) {
+  .workspace-grid,
   .primary-media {
     grid-template-columns: 1fr;
   }
+}
 
+@media (max-width: 720px) {
   .header-panel,
+  .header-actions,
   .primary-info,
-  .actions {
+  .action-row,
+  .incoming-box,
+  .settings-row,
+  .form-row {
     align-items: stretch;
+    grid-template-columns: 1fr;
     flex-direction: column;
   }
 }

@@ -9,6 +9,7 @@ from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 
 from app.core.config import get_settings
 from app.schemas import (
+    ActiveDeepModelRequest,
     PipelineEvaluateRequest,
     PipelineIndexRequest,
     PipelineUploadResponse,
@@ -17,6 +18,7 @@ from app.schemas import (
     TrainMetricModelRequest,
     TrainModelRequest,
 )
+from app.services.model_service import list_deep_models, set_active_deep_model
 from app.services.task_service import TaskRecord, python_command, task_manager
 
 router = APIRouter(prefix="/api/pipeline", tags=["pipeline"])
@@ -172,11 +174,13 @@ def train_model(payload: TrainModelRequest) -> TaskInfo:
         str(payload.weight_decay),
         "--workers",
         str(payload.workers),
+        "--output",
+        payload.output,
     )
     if payload.amp:
         command.append("--amp")
     task = task_manager.start_command(
-        name=f"训练 {payload.dataset.upper()} CNN",
+        name=f"训练 {payload.dataset.upper()} CNN · {Path(payload.output).name}",
         kind="train",
         command=command,
         parser="train_json",
@@ -223,7 +227,7 @@ def train_metric_model(payload: TrainMetricModelRequest) -> TaskInfo:
     if payload.amp:
         command.append("--amp")
     task = task_manager.start_command(
-        name=f"Triplet 训练 {payload.dataset.upper()}",
+        name=f"Triplet 训练 {payload.dataset.upper()} · {Path(payload.output).name}",
         kind="train_metric",
         command=command,
         parser="train_json",
@@ -232,20 +236,53 @@ def train_metric_model(payload: TrainMetricModelRequest) -> TaskInfo:
     return _to_task_info(task)
 
 
+@router.get("/models/deep")
+def get_deep_models() -> dict[str, object]:
+    """List available trained deep checkpoints."""
+
+    return list_deep_models()
+
+
+@router.post("/models/deep/active")
+def set_deep_model(payload: ActiveDeepModelRequest) -> dict[str, object]:
+    """Select the active deep checkpoint for future indexing/search."""
+
+    try:
+        return set_active_deep_model(payload.path)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @router.post("/index", response_model=TaskInfo)
 def build_index(payload: PipelineIndexRequest) -> TaskInfo:
     """Rebuild feature indexes as a background task."""
 
+    if "deep" in payload.features and payload.deep_model:
+        try:
+            set_active_deep_model(payload.deep_model)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+    command = python_command(
+        "scripts.build_index",
+        "--dataset",
+        payload.dataset,
+        "--features",
+        ",".join(payload.features),
+    )
+    if payload.cnn_model:
+        command.extend(["--cnn-model", payload.cnn_model])
+    if payload.triplet_model:
+        command.extend(["--triplet-model", payload.triplet_model])
     task = task_manager.start_command(
         name=f"重建 {payload.dataset} 索引",
         kind="index",
-        command=python_command(
-            "scripts.build_index",
-            "--dataset",
-            payload.dataset,
-            "--features",
-            ",".join(payload.features),
-        ),
+        command=command,
+        parser="index_tqdm",
+        progress={"percent": 0, "current": 0, "total": 0},
     )
     return _to_task_info(task)
 

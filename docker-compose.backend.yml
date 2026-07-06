@@ -1,0 +1,15 @@
+services:
+  cbir-backend:
+    image: ${CBIR_BACKEND_IMAGE:-cbir-backend:latest}
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: cbir-backend
+    restart: unless-stopped
+    ports:
+      - "${CBIR_BACKEND_PORT:-8000}:8000"
+    environment:
+      APP__DEVICE: "cpu"
+      CBIR_CORS_ORIGINS: "${CBIR_CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}"
+    volumes:
+      - ./data:/app/data

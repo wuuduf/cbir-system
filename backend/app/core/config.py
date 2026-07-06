@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 import yaml
 from pydantic import BaseModel, Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import (
+    BaseSettings,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+)
 
 
 class AppConfig(BaseModel):
@@ -71,6 +76,14 @@ class FeatureConfig(BaseModel):
             "batch_size": 64,
         }
     )
+    dinov2: dict[str, Any] = Field(
+        default_factory=lambda: {
+            "model": "dinov2_vits14",
+            "dim": 384,
+            "batch_size": 32,
+            "image_size": 224,
+        }
+    )
 
 
 class Settings(BaseSettings):
@@ -85,6 +98,19 @@ class Settings(BaseSettings):
     datasets_registry: str = "../data/registry.json"
     project_root: Path = Path(__file__).resolve().parents[3]
     backend_root: Path = Path(__file__).resolve().parents[2]
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        """Let deployment environment variables override settings.yaml."""
+
+        return env_settings, init_settings, dotenv_settings, file_secret_settings
 
     def resolve_backend_path(self, value: str) -> Path:
         """Resolve a path written relative to backend/."""
@@ -130,11 +156,26 @@ def _load_yaml_settings() -> dict[str, Any]:
     return dict(loaded)
 
 
+def _apply_runtime_env(settings: Settings) -> Settings:
+    """Apply simple deployment env vars that are convenient in Docker shells."""
+
+    cors_origins = os.environ.get("CBIR_CORS_ORIGINS", "").strip()
+    if cors_origins:
+        settings.app.cors_origins = [
+            item.strip() for item in cors_origins.split(",") if item.strip()
+        ]
+    public_base_url = os.environ.get("CBIR_PUBLIC_BASE_URL", "").strip()
+    if public_base_url:
+        settings.app.public_base_url = public_base_url
+    return settings
+
+
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     """Return cached application settings."""
 
     settings = Settings(**_load_yaml_settings())
+    settings = _apply_runtime_env(settings)
     settings.data_root_path.mkdir(parents=True, exist_ok=True)
     settings.registry_path.parent.mkdir(parents=True, exist_ok=True)
     return settings

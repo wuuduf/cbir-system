@@ -41,7 +41,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--triplet-weight", type=float, default=1.0)
     parser.add_argument("--ce-weight", type=float, default=0.5)
     parser.add_argument("--eval-k", type=int, default=12)
-    parser.add_argument("--pretrained", default="../data/models/cifar_resnet18.pt")
+    parser.add_argument(
+        "--pretrained",
+        default="../data/models/cifar_resnet18.pt",
+        help="Optional CNN checkpoint. Empty value trains Triplet from scratch.",
+    )
     parser.add_argument("--output", default="../data/models/cifar_resnet18_metric.pt")
     parser.add_argument("--amp", action="store_true", help="Use mixed precision on CUDA")
     return parser.parse_args()
@@ -52,7 +56,7 @@ def main() -> None:
     settings = get_settings()
     src = settings.resolve_backend_path(args.src)
     output = settings.resolve_backend_path(args.output)
-    pretrained = settings.resolve_backend_path(args.pretrained)
+    pretrained = settings.resolve_backend_path(args.pretrained) if args.pretrained else None
     output.parent.mkdir(parents=True, exist_ok=True)
     set_seed(args.seed)
 
@@ -182,8 +186,8 @@ def build_loaders(
     return train_loader, val_loader, train_set.classes, mean, std
 
 
-def load_pretrained_if_available(model: nn.Module, checkpoint_path: Path) -> None:
-    if not checkpoint_path.exists():
+def load_pretrained_if_available(model: nn.Module, checkpoint_path: Path | None) -> None:
+    if checkpoint_path is None or not checkpoint_path.exists():
         return
     checkpoint = torch.load(checkpoint_path, map_location="cpu")
     state = checkpoint.get("model_state")

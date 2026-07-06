@@ -22,6 +22,7 @@ data/datasets/
 data/models/
 data/videos/
 data/logs/
+data/admin_config.json
 
 # Local archives / model artifacts
 *.pt
@@ -37,3 +38,16 @@ data/logs/
 *.mkv
 *.webm
 *.m4v
+
+# Generated reports / presentation artifacts
+CBIR_*.docx
+CBIR_*.pptx
+CBIR_*.pdf
+CBIR_*.png
+*_contact.png
+~$*
+*_pages/
+_render_*/
+ppt_cbir_defense/
+ppt_cbir_project_revised/
+report_feature_assets/

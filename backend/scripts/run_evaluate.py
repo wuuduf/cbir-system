@@ -12,7 +12,7 @@ from app.services.eval_service import evaluate_dataset_feature
 def main() -> None:
     parser = argparse.ArgumentParser(description="Evaluate one CBIR feature")
     parser.add_argument("--dataset", required=True)
-    parser.add_argument("--feature", default="deep")
+    parser.add_argument("--feature", default="deep_triplet")
     parser.add_argument("--metric", default="cosine")
     parser.add_argument("--k", type=int, default=12)
     parser.add_argument("--sample", type=int, default=100)

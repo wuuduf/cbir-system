@@ -35,7 +35,18 @@ from app.similarity import (
     weighted_euclidean,
 )
 
-VIDEO_FEATURES = {"color_hist", "color_moments", "glcm", "lbp", "hu", "eoh", "deep"}
+VIDEO_FEATURES = {
+    "color_hist",
+    "color_moments",
+    "glcm",
+    "lbp",
+    "hu",
+    "eoh",
+    "deep",
+    "deep_cnn",
+    "deep_triplet",
+    "dinov2",
+}
 VIDEO_METRICS = {"intersection", "cosine", "euclidean", "weighted"}
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v"}
 
@@ -282,12 +293,20 @@ def search_videos_by_image(
     query = get_extractor(feature).extract(img_bgr).astype(np.float32)
     matrix, keyframe_ids, video_ids = _load_video_index(feature)
     scores = _score(query, matrix, _effective_metric(feature, metric))
-    best: dict[int, tuple[float, int]] = {}
+    grouped: dict[int, list[tuple[float, int]]] = {}
     for score, keyframe_id, video_id in zip(scores, keyframe_ids, video_ids):
-        current = best.get(int(video_id))
-        if current is None or float(score) > current[0]:
-            best[int(video_id)] = (float(score), int(keyframe_id))
-    ranked = sorted(best.items(), key=lambda item: item[1][0], reverse=True)[:top_k]
+        grouped.setdefault(int(video_id), []).append((float(score), int(keyframe_id)))
+    ranked = sorted(
+        (
+            (
+                video_id,
+                _aggregate_video_score(feature, values),
+            )
+            for video_id, values in grouped.items()
+        ),
+        key=lambda item: item[1][0],
+        reverse=True,
+    )[:top_k]
     hits = [_to_video_hit(db, video_id, score, keyframe_id) for video_id, (score, keyframe_id) in ranked]
     return VideoSearchResponse(
         query={"feature": feature, "metric": metric, "top_k": top_k},
@@ -393,6 +412,23 @@ def _score(query_vec: np.ndarray, matrix: np.ndarray, metric: str) -> np.ndarray
         weights = np.clip(weights / max(float(weights.mean()), 1e-6), 0.1, 10.0)
         return to_similarity(weighted_euclidean(query_vec, matrix, weights))
     raise ValueError(f"不支持度量: {metric}")
+
+
+def _aggregate_video_score(feature: str, values: list[tuple[float, int]]) -> tuple[float, int]:
+    """Aggregate keyframe scores into one video score.
+
+    Classification CNN features are noisy when a single keyframe is accidentally
+    close to the query, so they use the average of the top keyframes. Metric and
+    self-supervised features are better at matching a concrete visual fragment, so
+    they keep the best keyframe as the video score.
+    """
+
+    ranked = sorted(values, key=lambda item: item[0], reverse=True)
+    best_keyframe_id = ranked[0][1]
+    if feature in {"deep", "deep_cnn"}:
+        top_values = [score for score, _keyframe_id in ranked[:3]]
+        return float(np.mean(top_values)), best_keyframe_id
+    return ranked[0][0], best_keyframe_id
 
 
 def _effective_metric(feature: str, metric: str) -> str:

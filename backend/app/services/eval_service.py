@@ -19,7 +19,10 @@ SUPPORTED_EVAL_FEATURES = {
     "hu",
     "eoh",
     "deep",
+    "deep_cnn",
+    "deep_triplet",
     "clip",
+    "dinov2",
 }
 SUPPORTED_EVAL_METRICS = {"intersection", "cosine", "euclidean", "weighted"}
 

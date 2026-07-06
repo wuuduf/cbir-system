@@ -8,7 +8,7 @@
         class="result-card"
         @click="$emit('select', hit)"
       >
-        <div class="image-frame" :class="{ 'low-res-image': isLowResolution(hit) }">
+        <div class="image-frame" :class="{ 'low-res-image': shouldUseOriginalSize(hit) }">
           <span class="rank-badge" :class="{ 'rank-top': index < 3 }">#{{ index + 1 }}</span>
           <img :src="hit.url" :alt="hit.name" />
         </div>
@@ -26,10 +26,14 @@
 </template>
 
 <script setup>
-defineProps({
+const props = defineProps({
   hits: {
     type: Array,
     default: () => []
+  },
+  displayMode: {
+    type: String,
+    default: 'original'
   }
 })
 
@@ -37,6 +41,10 @@ defineEmits(['select'])
 
 function isLowResolution(hit) {
   return Number(hit.width || 0) <= 64 && Number(hit.height || 0) <= 64
+}
+
+function shouldUseOriginalSize(hit) {
+  return props.displayMode === 'original' && isLowResolution(hit)
 }
 
 // 相似度分数（0~1）转百分比宽度，直观展示每个结果与查询图的接近程度。
