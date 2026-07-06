@@ -1,0 +1,76 @@
+CBIR 系统依赖文件
+================
+
+一、后端环境
+
+Python 版本建议：3.10
+
+主要依赖：
+
+fastapi
+uvicorn[standard]
+opencv-python-headless
+numpy
+scikit-image
+pillow
+faiss-cpu
+open_clip_torch
+sqlalchemy
+pydantic-settings
+pyyaml
+tqdm
+python-multipart
+torch
+torchvision
+
+Docker CPU 部署依赖可参考：
+
+backend/requirements-docker.txt
+
+本地开发依赖可参考：
+
+backend/requirements.txt
+
+二、前端环境
+
+Node.js 建议版本：18 或以上
+
+主要依赖：
+
+vue
+vue-router
+pinia
+vite
+axios
+element-plus
+@element-plus/icons-vue
+echarts
+vue-echarts
+
+前端依赖可参考：
+
+frontend/package.json
+
+三、运行说明
+
+本地启动后端：
+
+cd backend
+python -m venv .venv
+.\.venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+
+本地启动前端：
+
+cd frontend
+npm install
+npm run dev
+
+四、部署说明
+
+前端可部署到 Cloudflare Pages。
+
+后端可使用 Docker 部署到 VPS。
+
+数据集、数据库、模型、视频库和索引文件不包含在源程序代码包中，需要单独放入 data 目录。

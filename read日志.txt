@@ -1,0 +1,82 @@
+CBIR 系统数据与启动说明
+========================
+
+一、GitHub 地址
+
+https://github.com/wuuduf/cbir-system
+
+二、数据集获取
+
+本系统主要使用 CIFAR-10 数据集，数据来源为 Toronto 官方页面：
+
+https://www.cs.toronto.edu/~kriz/cifar.html
+
+下载 Python 版本：
+
+cifar-10-python.tar.gz
+
+官方 MD5：
+
+c58f30108f718f92721af3b95e74349a
+
+三、数据放置位置
+
+源程序代码包不包含数据库、模型、索引、视频和 CIFAR-10 图片文件。
+
+本地或服务器运行时，请把数据放到项目根目录的 data 文件夹中：
+
+cbir-system/data/
+
+建议目录结构：
+
+cbir-system/data/raw/                         原始 CIFAR-10 压缩包和解压目录
+cbir-system/data/datasets/cifar10/images/     CIFAR-10 图片
+cbir-system/data/datasets/cifar10/index/      特征向量和 FAISS 索引
+cbir-system/data/models/                      CNN 和 Triplet 模型
+cbir-system/data/videos/                      视频库和关键帧
+cbir-system/data/cbir.db                      SQLite 数据库
+cbir-system/data/registry.json                数据集登记信息
+
+四、本地启动方式
+
+后端：
+
+cd cbir-system/backend
+python -m venv .venv
+.\.venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+
+前端：
+
+cd cbir-system/frontend
+npm install
+npm run dev
+
+访问地址：
+
+http://localhost:5173/search
+
+后端接口文档：
+
+http://127.0.0.1:8000/docs
+
+五、Cloudflare Pages 前端部署
+
+Root directory: frontend
+Build command: npm run build
+Build output directory: dist
+
+环境变量：
+
+VITE_API_BASE_URL=https://你的后端域名
+
+六、Docker 后端部署
+
+后端可以使用 Docker 部署到 VPS，数据目录通过 volume 挂载：
+
+docker run -d --name cbir-backend --restart unless-stopped -p 8000:8000 -e APP__DEVICE=cpu -e CBIR_CORS_ORIGINS=https://你的前端.pages.dev -v /opt/cbir/data:/app/data cbir-backend:latest
+
+七、说明
+
+如果只进行项目展示，不需要在服务器上重新训练模型。训练好的模型、索引、数据库、图片和视频库可以从本地上传到 VPS 的 /opt/cbir/data 目录。

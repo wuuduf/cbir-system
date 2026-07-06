@@ -1,151 +1,213 @@
 # CBIR Web 系统
 
-这是按 `CBIR_IMPLEMENTATION_SPEC.md` 搭建的基于内容的图像检索系统。
+本项目是一个基于内容的图像检索系统。系统以 CIFAR-10 全量 60000 张图片作为主要图库，支持传统特征、深度特征、模型训练、检索评估、视频检索和 AI 辅助结果分析。
 
-当前验收范围：
+GitHub 地址：
 
-- M0：项目脚手架、配置、健康检查。
-- M1：以 CIFAR-10 为主数据集，完成 HSV 颜色直方图建库、上传图片检索 Top-12、最简 Vue3 页面。
-- M2：传统特征、图库、直方图展示、批量评估。
-- M3：ResNet50 深度特征、FAISS 深度索引、深度检索与融合检索。
-- M4：mAP、P@K、PR 曲线评估接口与前端图表。
-- M5：CIFAR-10 数据集热切换、图库增删、索引重建、错误提示与空状态。
-- M6：复现说明、API 清单、算法说明、报告素材清单。
-- Pipeline：前端实验流水线，支持上传/下载数据集、预处理、训练 CNN、重建索引、后台任务日志。
+```text
+https://github.com/wuuduf/cbir-system
+```
 
-## 后端
+## 主要功能
 
-CIFAR-10 从 Toronto 官方页面获取：[https://www.cs.toronto.edu/~kriz/cifar.html](https://www.cs.toronto.edu/~kriz/cifar.html)。本项目以 CIFAR-10 为主数据集，使用 Python 版本 `cifar-10-python.tar.gz`，官方 md5 为 `c58f30108f718f92721af3b95e74349a`。
+- 图像检索：上传图片或选择图库图片，按 Top-K 返回相似图片。
+- 图库浏览：分页查看 CIFAR-10 图片，支持类别筛选。
+- 多特征检索：支持 HSV、颜色矩、GLCM、LBP、Hu、EOH、CNN、Triplet、DINOv2、CLIP 等特征。
+- 多相似度度量：支持余弦相似度、欧氏距离、直方图相交和加权距离。
+- 检索评估：计算 mAP、P@K、PR 曲线，并支持多特征同场对比。
+- 模型训练：支持 CIFAR-ResNet18 分类模型训练和 Triplet 度量学习模型训练。
+- 视频检索：上传或导入视频，抽取关键帧并复用图像特征完成以图搜视频。
+- 任务中心：下载、预处理、训练、索引、评估等耗时任务可查看进度和日志。
+- AI 分析：管理员配置 DeepSeek 兼容接口后，可对评估结果生成文字分析。
+- 前端部署：支持 Cloudflare Pages 静态部署。
+- 后端部署：支持 Docker 在 VPS 上运行。
+
+## 项目结构
+
+```text
+cbir-system/
+├─ backend/                 FastAPI 后端、特征提取、检索、评估和训练脚本
+├─ frontend/                Vue3 + Vite 前端页面
+├─ data/                    本地数据目录，提交代码时不包含数据库和数据集
+├─ docker-compose.backend.yml
+├─ DOCKER_DEPLOYMENT.md
+├─ read日志.txt             数据获取、放置和启动说明
+├─ 依赖文件.txt             前后端主要依赖说明
+└─ README.md
+```
+
+## 数据集来源
+
+主要数据集使用 CIFAR-10 Python 版本：
+
+```text
+https://www.cs.toronto.edu/~kriz/cifar.html
+```
+
+下载文件：
+
+```text
+cifar-10-python.tar.gz
+```
+
+官方 MD5：
+
+```text
+c58f30108f718f92721af3b95e74349a
+```
+
+数据文件不提交到 GitHub。部署或本地运行时，应把数据放到：
+
+```text
+cbir-system/data/
+```
+
+常用目录包括：
+
+```text
+data/raw/                   原始压缩包和解压目录
+data/datasets/cifar10/      CIFAR-10 图片和特征索引
+data/models/                已训练 CNN / Triplet 模型
+data/videos/                视频库与关键帧
+data/cbir.db                SQLite 数据库
+data/registry.json          数据集登记信息
+```
+
+## 本地后端启动
 
 ```powershell
 cd C:\Users\wgq20\Documents\CBIR\cbir-system\backend
 python -m venv .venv
 .\.venv\Scripts\activate
 pip install -r requirements.txt
-pip install -r requirements-cuda.txt
-curl.exe -L -o ..\data\raw\cifar-10-python.tar.gz https://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz
-Get-FileHash ..\data\raw\cifar-10-python.tar.gz -Algorithm MD5
-tar -xzf ..\data\raw\cifar-10-python.tar.gz -C ..\data\raw
-python -m scripts.prepare_cifar --src ..\data\raw\cifar-10-batches-py --split all
-python -m scripts.build_index --dataset cifar10 --features all
 uvicorn app.main:app --reload --port 8000
 ```
 
-没有 CUDA 时，代码会自动回退 CPU。也可以先安装 CPU 版 PyTorch：
+如果只部署演示版，建议使用 CPU 依赖；如果要在本地 RTX 显卡上训练模型，可以安装 CUDA 版本 PyTorch。
 
-```powershell
-pip install torch torchvision
+后端接口文档：
+
+```text
+http://127.0.0.1:8000/docs
 ```
 
-CUDA 验收：
+健康检查：
 
-```powershell
-python -m scripts.verify_cuda
-curl http://localhost:8000/api/health
+```text
+http://127.0.0.1:8000/api/health
 ```
 
-当前项目已将 CIFAR-10 train+test 全量 60000 张作为主数据集。如果只想快速验收子集，可改用 `--split train --per-class 500`。
-
-后端质量验收：
-
-```powershell
-python -m pytest
-python -m ruff check app scripts tests
-python -m black --check app scripts tests
-```
-
-## 前端
+## 本地前端启动
 
 ```powershell
 cd C:\Users\wgq20\Documents\CBIR\cbir-system\frontend
-pnpm install
-pnpm run dev
-```
-
-访问 `http://localhost:5173/search`，默认数据集为 `cifar10`。
-
-如果后端因端口权限问题改跑 `8010`，前端这样启动：
-
-```powershell
-$env:VITE_API_TARGET="http://127.0.0.1:8010"
+npm install
 npm run dev
 ```
 
-## API 清单
+访问：
 
-- `GET /api/health`：健康检查，返回当前 CPU/CUDA 状态。
-- `GET /api/datasets`：数据集列表。
-- `GET /api/datasets/{dataset}/images`：分页图库。
-- `GET /api/datasets/{dataset}/categories`：类别列表。
-- `POST /api/search`：上传图片或按 `image_id` 检索 Top-K。
-- `GET /api/histogram`：HSV/灰度直方图。
-- `POST /api/images`：上传图片入库并同步索引。
-- `DELETE /api/images/{image_id}`：删除图片并同步索引。
-- `POST /api/index/build`：重建指定特征索引。
-- `GET /api/evaluate`：返回 mAP、P@K、PR 曲线。
+```text
+http://localhost:5173/search
+```
 
-FastAPI 自动文档：启动后端后访问 `http://127.0.0.1:8000/docs`。
+如果后端不是默认 `8000` 端口，可以设置：
 
-## 算法说明
+```powershell
+$env:VITE_API_TARGET="http://127.0.0.1:8000"
+npm run dev
+```
 
-- 颜色特征：HSV 三维联合直方图做 L1 归一化；颜色矩统计 H/S/V 三通道均值、标准差、三阶中心矩。
-- 纹理特征：GLCM 先量化灰度级，再计算对比度、相关性、能量、熵，并统计均值和标准差；LBP 采用 uniform 模式并归一化直方图。
-- 形状特征：Hu 矩使用灰度化、中值滤波、Sobel、迭代阈值后计算 7 个不变矩；EOH 使用 Sobel 梯度方向按幅值加权统计。
-- 深度特征：ResNet50 去掉全连接层，取 avgpool 2048 维输出，使用 ImageNet 标准化和 L2 归一化。
-- 综合检索：颜色、纹理、形状、深度分别计算相似度，min-max 归一化到 `[0,1]` 后按滑块权重融合。
-- 评估：图库内每张图作为查询图，排除自身，同类为相关样本，计算 mAP、P@K 和平均 PR 曲线。
+## 一键启动
 
-## 报告素材清单
-
-- `/search`：上传或选择 CIFAR-10 图片，截图 Top-12 检索结果与直方图。
-- `/gallery`：截图类别筛选、上传、删除、重建索引。
-- `/evaluate`：分别评估 `color_hist`、`glcm`、`hu`、`deep`，截图 mAP/P@12 柱状图和 PR 曲线。
-- `/pipeline`：截图数据集导入、预处理、训练、索引构建和任务日志。
-- `/docs`：截图接口文档首页和 `/api/evaluate` 接口。
-
-## 常见问题
-
-- 端口 `8000` 被占用或无权限：后端改用 `--port 8010`。
-- 后端使用 `8010` 时前端连不上：先设置 `$env:VITE_API_TARGET="http://127.0.0.1:8010"`，再启动前端。
-- CUDA 不可用：确认 `python -m scripts.verify_cuda`；不可用时系统会自动回退 CPU，但深度建库会变慢。
-- `pnpm` 不存在：本项目也支持 `npm install` 和 `npm run dev`。
-- 首次深度特征建库慢：首次会下载 ResNet50 权重；下载完成后会走本地缓存。
-
-## 实验流水线页面
-
-访问 `http://localhost:5173/pipeline`，可以通过前端启动以下后台任务：
-
-- 上传或下载 CIFAR 数据压缩包。
-- 预处理 CIFAR-10 / CIFAR-100，写入图片目录、SQLite 和 `registry.json`。
-- 训练 CIFAR CNN，实时查看 epoch、loss、train_acc、val_acc。
-- 重建 deep 或传统特征索引。
-- 启动一次 deep + cosine 评估。
-
-说明：浏览器只负责交互和进度展示，真正的数据处理、PyTorch 训练、CUDA 推理和 FAISS 建库仍由 FastAPI 后端启动 Python 后台任务执行。
-
-## 一键启动脚本
-
-项目根目录提供 `start_cbir.ps1`，会先关闭占用后端/前端端口的旧进程，再后台启动后端和前端，并输出接口健康检查结果。
+项目根目录提供 Windows 一键启动脚本：
 
 ```powershell
 cd C:\Users\wgq20\Documents\CBIR\cbir-system
 .\start_cbir.ps1
 ```
 
-默认端口：
+脚本会尝试关闭已占用的前后端进程，重新启动后端和前端，并输出接口健康度。
 
-- 后端：`http://127.0.0.1:8010`
-- 前端：`http://localhost:5173`
-- 实验流水线：`http://localhost:5173/pipeline`
+## Cloudflare Pages 前端部署
 
-如果想跳过评估接口健康检查：
-
-```powershell
-.\start_cbir.ps1 -SkipEvaluateHealth
-```
-
-日志目录：
+GitHub 仓库根目录中直接包含 `frontend` 文件夹，因此 Cloudflare Pages 应填写：
 
 ```text
-C:\Users\wgq20\Documents\CBIR\cbir-system\.runtime\logs
+Root directory: frontend
+Build command: npm run build
+Build output directory: dist
 ```
+
+环境变量：
+
+```text
+VITE_API_BASE_URL=https://你的后端域名
+```
+
+如果暂时没有域名，也可测试：
+
+```text
+VITE_API_BASE_URL=http://你的VPS_IP:8000
+```
+
+正式展示时建议后端也配置 HTTPS，避免浏览器拦截 HTTPS 页面请求 HTTP 接口。
+
+## Docker 后端部署
+
+后端可在 VPS 上使用 Docker 运行：
+
+```bash
+docker build -f backend/Dockerfile -t cbir-backend:latest .
+docker run -d \
+  --name cbir-backend \
+  --restart unless-stopped \
+  -p 8000:8000 \
+  -e APP__DEVICE=cpu \
+  -e CBIR_CORS_ORIGINS=https://你的前端.pages.dev \
+  -v /opt/cbir/data:/app/data \
+  cbir-backend:latest
+```
+
+详细说明见：
+
+```text
+DOCKER_DEPLOYMENT.md
+```
+
+## 常用页面
+
+```text
+/search      图像检索
+/gallery     图库浏览
+/evaluate    检索评估与多特征对比
+/videos      视频检索
+/models      模型训练与索引重建
+/admin       AI 接口配置
+```
+
+## 主要接口
+
+```text
+GET  /api/health
+GET  /api/datasets
+GET  /api/datasets/{dataset}/images
+POST /api/search
+GET  /api/evaluate
+POST /api/index/build
+GET  /api/tasks
+POST /api/tasks/{task_id}/cancel
+POST /api/videos/import-local
+POST /api/videos/index/build
+POST /api/videos/search
+GET  /api/admin/config
+PUT  /api/admin/config
+POST /api/admin/analyze-evaluation
+```
+
+## 注意事项
+
+- GitHub 仓库只提交源代码和必要配置，不包含数据库、模型、视频和 CIFAR-10 图片文件。
+- `data/admin_config.json` 可能保存 API Key，已经加入 `.gitignore`，不要提交。
+- 1 核 1GB VPS 适合运行展示版后端，不适合在线训练模型。
+- 如果需要重新训练 CNN 或 Triplet，建议在本地有 CUDA 的电脑上训练，再把 `.pt` 模型和索引上传到 VPS。
