@@ -1,5 +1,5 @@
 <template>
-  <el-select v-model="store.currentDataset" style="width: 180px" placeholder="数据集">
+  <el-select v-model="store.currentDataset" class="dataset-selector" placeholder="数据集">
     <el-option
       v-for="dataset in datasets"
       :key="dataset.key"
@@ -25,3 +25,14 @@ onMounted(async () => {
 })
 </script>
 
+<style scoped>
+.dataset-selector {
+  width: 180px;
+}
+
+@media (max-width: 720px) {
+  .dataset-selector {
+    width: 100%;
+  }
+}
+</style>

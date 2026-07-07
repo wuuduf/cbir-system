@@ -9,7 +9,9 @@
 
     <section class="panel eval-tools">
       <div class="tool-row">
-        <el-segmented v-model="feature" :options="featureOptions" :disabled="loading" />
+        <div class="feature-strip">
+          <el-segmented v-model="feature" :options="featureOptions" :disabled="loading" />
+        </div>
         <el-select v-model="metric" style="width: 150px" :disabled="loading">
           <el-option label="余弦" value="cosine" />
           <el-option label="欧氏" value="euclidean" />
@@ -36,15 +38,17 @@
           </div>
           <el-button type="primary" plain :loading="loading" @click="runCompare">评估对比特征</el-button>
         </div>
-        <el-checkbox-group v-model="compareFeatures" :disabled="loading">
-          <el-checkbox-button
-            v-for="option in featureOptions"
-            :key="option.value"
-            :label="option.value"
-          >
-            {{ option.label }}
-          </el-checkbox-button>
-        </el-checkbox-group>
+        <div class="compare-scroll">
+          <el-checkbox-group v-model="compareFeatures" :disabled="loading">
+            <el-checkbox-button
+              v-for="option in featureOptions"
+              :key="option.value"
+              :label="option.value"
+            >
+              {{ option.label }}
+            </el-checkbox-button>
+          </el-checkbox-group>
+        </div>
       </div>
 
       <div v-if="summaryCards.length" class="summary">
@@ -404,7 +408,9 @@ onMounted(async () => {
 .eval-tools {
   display: grid;
   gap: 18px;
+  min-width: 0;
   margin-bottom: 18px;
+  overflow: hidden;
 }
 
 .tool-row {
@@ -412,11 +418,33 @@ onMounted(async () => {
   align-items: center;
   flex-wrap: wrap;
   gap: 12px;
+  min-width: 0;
+}
+
+.feature-strip,
+.compare-scroll {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+}
+
+.feature-strip {
+  flex: 1 1 100%;
+}
+
+.feature-strip :deep(.el-segmented),
+.compare-scroll :deep(.el-checkbox-group) {
+  width: max-content;
+  min-width: max-content;
 }
 
 .compare-box {
   display: grid;
   gap: 12px;
+  min-width: 0;
   padding: 14px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -497,6 +525,7 @@ onMounted(async () => {
 .ai-panel,
 .conclusion {
   margin-top: 18px;
+  min-width: 0;
 }
 
 .ai-actions {
@@ -525,6 +554,40 @@ onMounted(async () => {
 }
 
 @media (max-width: 760px) {
+  .eval-tools {
+    gap: 14px;
+    padding: 12px;
+  }
+
+  .tool-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .feature-strip {
+    grid-column: 1 / -1;
+  }
+
+  .tool-row :deep(.el-select),
+  .tool-row :deep(.el-input-number) {
+    width: 100% !important;
+  }
+
+  .tool-row > .el-button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .compare-box {
+    padding: 12px;
+  }
+
+  .compare-head > .el-button {
+    width: 100%;
+  }
+
   .summary {
     grid-template-columns: 1fr;
   }
@@ -533,6 +596,19 @@ onMounted(async () => {
   .section-title {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .deep-model-banner {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .comparison-table {
+    overflow-x: auto;
+  }
+
+  .comparison-table :deep(.el-table) {
+    min-width: 680px;
   }
 }
 </style>
